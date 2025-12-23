@@ -58,7 +58,41 @@ for mpath in models:
     y_val = df_val['R'].astype(float).values
     y_pred = model.predict(X_val)
     mse = float(mean_squared_error(y_val, y_pred))
+    rmse = float(np.sqrt(mse))
     r2 = float(r2_score(y_val, y_pred))
-    print(f"  meta_val_mse={meta.get('val_mse')}, actual_val_mse={mse}")
+    # 如果 meta 中包含 val_mse，可以打印对应的 RMSE 比较
+    meta_mse = meta.get('val_mse')
+    meta_rmse = None
+    if meta_mse is not None:
+        try:
+            meta_rmse = float(np.sqrt(float(meta_mse)))
+        except Exception:
+            meta_rmse = None
+
+    print(f"  meta_val_mse={meta_mse}, actual_val_mse={mse}")
+    print(f"  meta_val_rmse={meta_rmse}, actual_val_rmse={rmse}")
     print(f"  meta_val_r2={meta.get('val_r2')}, actual_val_r2={r2}")
 
+    # 收集到 summary
+    if 'summary_rows' not in globals():
+        summary_rows = []
+    summary_rows.append({
+        'file': meta.get('file', stem),
+        'val_mse_meta': meta.get('val_mse'),
+        'val_mse_actual': mse,
+        'val_rmse_meta': meta_rmse,
+        'val_rmse_actual': rmse,
+        'val_r2_meta': meta.get('val_r2'),
+        'val_r2_actual': r2,
+        'val_size': meta.get('val_size')
+    })
+
+# 在所有模型处理完后写出汇总 CSV
+if 'summary_rows' in globals() and summary_rows:
+    out_df = pd.DataFrame(summary_rows)
+    out_csv = MO_DIR / 'verification_summary.csv'
+    try:
+        out_df.to_csv(out_csv, index=False, encoding='utf-8-sig')
+        print(f"已写入验证汇总: {out_csv}")
+    except Exception as e:
+        print(f"写入验证汇总失败: {e}")
